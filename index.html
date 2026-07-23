@@ -542,7 +542,19 @@ function loadProjects(){
 }
 function saveProjects(){ localStorage.setItem(LS_KEY_PROJECTS, JSON.stringify(projectsData)); }
 
-const projPhotos = {}; // { projectId: {sketch:url, real:url} } —— 本次会话内有效，刷新页面会清空
+/* 在 GitHub 建一个仓库专门存照片，生成一个 fine-grained token（只授权这一个仓库的 Contents 读写），填在这里。
+   Token 会出现在网页源码里——自己私下用没问题，别把这个文件发给别人或传到公开仓库。 */
+const GITHUB_CONFIG = {
+  token: 'PASTE_YOUR_GITHUB_TOKEN_HERE',
+  owner: 'PASTE_YOUR_GITHUB_USERNAME',
+  repo: 'woodflow-photos',
+  branch: 'main'
+};
+
+const LS_KEY_PHOTOS = 'wc_projPhotos_v1';
+function loadPhotos(){ return JSON.parse(localStorage.getItem(LS_KEY_PHOTOS) || '{}'); }
+function savePhotos(){ localStorage.setItem(LS_KEY_PHOTOS, JSON.stringify(projPhotos)); }
+let projPhotos = loadPhotos(); // { projectId: {sketch:url, real:url} } —— url 是 GitHub 上的永久图片链接
 let projFilterState = '全部';
 let activeProjectId = null;
 
@@ -588,24 +600,73 @@ function openProject(id){
   document.getElementById('fileReal').dataset.pid = id;
   ['sketch','real'].forEach(kind=>{
     const slotId = kind==='sketch' ? 'slotSketch' : 'slotReal';
-    const slot = document.getElementById(slotId);
     const existing = projPhotos[id] && projPhotos[id][kind];
-    slot.innerHTML = existing
-      ? `<img src="${existing}"><span style="background:rgba(43,29,20,0.55); padding:2px 7px; border-radius:6px; color:#F1E6D2;">${kind==='sketch'?'设计草图':'作品实物'}</span>`
-      : `<span>${kind==='sketch'?'设计草图':'作品实物'}<br>点击上传</span>`;
+    renderPhotoSlot(slotId, existing || null, kind);
   });
   document.getElementById('projModal').classList.add('open');
 }
-function uploadPhoto(input, slotId, kind){
+function fileToBase64(file){
+  return new Promise((resolve, reject)=>{
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result.split(',')[1]); // 去掉 data:image/...;base64, 前缀
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+function photoLabel(kind){ return kind==='sketch' ? '设计草图' : '作品实物'; }
+function renderPhotoSlot(slotId, url, kind){
+  document.getElementById(slotId).innerHTML = url
+    ? `<img src="${url}"><span style="background:rgba(43,29,20,0.55); padding:2px 7px; border-radius:6px; color:#F1E6D2;">${photoLabel(kind)}</span>`
+    : `<span>${photoLabel(kind)}<br>点击上传</span>`;
+}
+async function uploadPhoto(input, slotId, kind){
   const pid = parseInt(input.dataset.pid);
   const file = input.files[0];
   if(!file) return;
-  const url = URL.createObjectURL(file);
-  projPhotos[pid] = projPhotos[pid] || {};
-  projPhotos[pid][kind] = url;
-  document.getElementById(slotId).innerHTML = `<img src="${url}"><span style="background:rgba(43,29,20,0.55); padding:2px 7px; border-radius:6px; color:#F1E6D2;">${kind==='sketch'?'设计草图':'作品实物'}</span>`;
-  toast('已上传，AI 正在生成缩略图…');
-  setTimeout(renderProjGrid, 400);
+
+  const tokenReady = GITHUB_CONFIG.token && GITHUB_CONFIG.token !== 'PASTE_YOUR_GITHUB_TOKEN_HERE';
+  if(!tokenReady){
+    // 没配置 GitHub token 时的临时预览，关闭页面后就会丢失
+    const url = URL.createObjectURL(file);
+    renderPhotoSlot(slotId, url, kind);
+    toast('还没配置 GitHub Token，这张照片只在本次打开期间有效');
+    return;
+  }
+
+  document.getElementById(slotId).innerHTML = `<span>上传中…</span>`;
+  try{
+    const base64 = await fileToBase64(file);
+    const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
+    const path = `photos/${pid}-${kind}-${Date.now()}.${ext}`;
+    const resp = await fetch(`https://api.github.com/repos/${GITHUB_CONFIG.owner}/${GITHUB_CONFIG.repo}/contents/${path}`, {
+      method: 'PUT',
+      headers: {
+        'Authorization': `Bearer ${GITHUB_CONFIG.token}`,
+        'Content-Type': 'application/json',
+        'Accept': 'application/vnd.github+json'
+      },
+      body: JSON.stringify({
+        message: `上传照片 ${path}`,
+        content: base64,
+        branch: GITHUB_CONFIG.branch
+      })
+    });
+    if(!resp.ok){
+      const errBody = await resp.json().catch(()=>({}));
+      throw new Error(errBody.message || ('HTTP ' + resp.status));
+    }
+    const rawUrl = `https://raw.githubusercontent.com/${GITHUB_CONFIG.owner}/${GITHUB_CONFIG.repo}/${GITHUB_CONFIG.branch}/${path}`;
+    projPhotos[pid] = projPhotos[pid] || {};
+    projPhotos[pid][kind] = rawUrl;
+    savePhotos();
+    renderPhotoSlot(slotId, rawUrl, kind);
+    toast('照片已上传到 GitHub，之后打开都会保留');
+    renderProjGrid();
+  }catch(err){
+    console.error(err);
+    renderPhotoSlot(slotId, null, kind);
+    toast('上传失败：' + (err.message || err));
+  }
 }
 function deleteProject(){
   if(activeProjectId===null) return;
@@ -615,6 +676,7 @@ function deleteProject(){
   projectsData = projectsData.filter(x=>x.id!==activeProjectId);
   delete projPhotos[activeProjectId];
   saveProjects();
+  savePhotos();
   closeModal('projModal');
   renderProjGrid();
   toast(`已删除「${p.name}」`);
@@ -651,13 +713,11 @@ function submitNewProject(){
 /* ========================= AI 设计中心 ========================= */
 function fillPrompt(text){ document.getElementById('aiPrompt').value = text; }
 
-/* 在阿里云百炼控制台重新生成一个 Key 后填在这里。
-   注意：这是纯前端页面，Key 会出现在网页源码里——
-   只给自己/爷爷私下用问题不大，但不要把这个文件发给别人或传到公开的代码仓库。 */
+/* 现在改成走 Vercel 中转接口，Key 存在 Vercel 后台的环境变量里，
+   这个文件里不再需要写任何 API Key，安全很多。
+   部署好 Vercel 项目后，把下面换成你自己的接口地址。 */
 const QWEN_CONFIG = {
-  apiKey: 'sk-ws-H.EDRLLDM.2SGV.MEQCIGI3Js_bKNQomi8kRAoLLQtigJ-4xdpykNGrxwvwudWXAiA6oz8ivmpZURlPDdisBoa4Zj8b-0gA5RkvLQmJaZlCCg',
-  baseUrl: 'https://ws-05vmgaic48euvm26.cn-beijing.maas.aliyuncs.com/compatible-mode/v1',
-  model: 'qwen-plus'
+  proxyUrl: 'https://PASTE_YOUR_VERCEL_PROJECT.vercel.app/api/generate'
 };
 
 const designTemplates = [
@@ -698,7 +758,20 @@ function localFallbackTemplate(text){
   return tpl;
 }
 
+function sanitizeSvg(svg){
+  if(!svg || typeof svg !== 'string') return null;
+  let s = svg.trim();
+  if(!s.startsWith('<svg')) return null;
+  // 简单防御：去掉脚本标签和事件属性，避免 AI 输出里混入可执行代码
+  s = s.replace(/<script[\s\S]*?<\/script>/gi, '')
+       .replace(/\son\w+\s*=\s*"[^"]*"/gi, '')
+       .replace(/\son\w+\s*=\s*'[^']*'/gi, '')
+       .replace(/javascript:/gi, '');
+  return s;
+}
+
 function renderAiResult(tpl, source){
+  const safeSvg = sanitizeSvg(tpl.sketchSvg);
   document.getElementById('aiResultWrap').innerHTML = `
     <div class="ai-result">
       <div class="ai-result-head">
@@ -713,6 +786,13 @@ function renderAiResult(tpl, source){
         🤔 AI 的理解：${tpl.assumption}<br>
         <span style="font-size:11px; opacity:0.85;">如果理解错了，把描述写得更具体一点（比如说明是"搁筷尖用的小摆件"还是"插放筷子的筒"）再生成一次即可。</span>
       </div>` : ''}
+      <div class="modal-sub-title" style="margin-top:0;">✏️ 设计草图</div>
+      ${safeSvg ? `
+        <div style="background:#fff; border:1px solid var(--line); border-radius:12px; padding:10px; margin-bottom:6px;">${safeSvg}</div>
+        <div style="font-size:10.5px; color:var(--ink-soft); margin-bottom:14px;">AI 生成的简笔线稿，比例参考尺寸数据画出，不是精确工程图，实际制作以你的测量为准</div>
+      ` : `
+        <div class="nest-empty" style="margin-bottom:14px;">${source==='api' ? '这次没有生成出草图，可以重新点一次生成试试' : '连接 AI 后才能生成设计草图'}</div>
+      `}
       <div class="modal-sub-title" style="margin-top:0;">📐 尺寸建议</div>
       <table class="ai-dim-table">
         ${tpl.dims.map(d=>`<tr><td>${d[0]}</td><td>${d[1]}</td></tr>`).join('')}
@@ -733,7 +813,7 @@ function renderAiResult(tpl, source){
   `;
 }
 
-const AI_SYSTEM_PROMPT = `你是一位懂中国传统木工规格的业余木作顾问。用户会描述想做的木作品，你需要只返回一个 JSON 对象（不要任何多余文字、不要代码块标记），字段如下：
+const AI_SYSTEM_PROMPT = `你是一位懂中国传统木工规格的业余木作顾问，同时能画简单的技术线稿。用户会描述想做的木作品，你需要只返回一个 JSON 对象（不要任何多余文字、不要代码块标记），字段如下：
 {
   "assumption": "一句话说明你把这个描述理解成了什么具体物件、什么使用场景（比如是餐桌上单个搁筷尖用的小摆件，还是收纳多双筷子的筒/架）。如果描述本身可能有歧义，在这句话里说明你选择了哪种更常见的理解。",
   "name": "作品名称（中文，简短）",
@@ -742,7 +822,8 @@ const AI_SYSTEM_PROMPT = `你是一位懂中国传统木工规格的业余木作
   "material": "材料建议（树种+纹理/拼板建议）",
   "weight": "重量估算，带单位",
   "cost": "仅材料成本估算区间，人民币",
-  "finish": "上蜡/上油具体建议，说明用什么油、涂几遍、间隔多久，如果是食品接触类要特别说明"
+  "finish": "上蜡/上油具体建议，说明用什么油、涂几遍、间隔多久，如果是食品接触类要特别说明",
+  "sketchSvg": "一段完整的 <svg>...</svg> 字符串，画出该作品的正视图轮廓线稿"
 }
 
 尺度校准规则（非常重要，避免尺寸失真）：
@@ -754,29 +835,28 @@ const AI_SYSTEM_PROMPT = `你是一位懂中国传统木工规格的业余木作
 - cost 字段只计算业余爱好者自己购买木料 + 少量五金/胶水/砂纸/油漆等辅料的物料成本，参照国内木料市场零售价，不要按"卖给别人的定价"或"专业工坊报价"来估。
 - 一个巴掌大小的小摆件，材料成本通常在个位数到几十元人民币，不应该出现三位数报价，除非用了很贵的木材（如紫光檀）或体积明显偏大。
 
-只输出 JSON。`;
+sketchSvg 绘制规则：
+- 这是给业余木工看的参考草图，不是精确工程图，风格是简笔线稿（类似手绘设计草图），不是写实渲染。
+- viewBox 固定为 "0 0 320 320"，根标签写成 <svg viewBox="0 0 320 320" xmlns="http://www.w3.org/2000/svg">...</svg>。
+- 只用基本图形拼出轮廓：<line> <path> <rect> <circle> <ellipse> <polygon>，描边颜色统一用 #43392F，描边宽度 2，fill="none"（除非是要表达实心截面时可以用浅色填充，比如 #DDD3C1）。禁止使用图片、渐变、滤镜、动画、<script>、<foreignObject>。
+- 图形的长宽比例要尽量贴近 dims 里给出的真实尺寸比例（比如长 240mm 宽 8mm 的筷子，画出来就应该是又细又长，不能画成正方形）。
+- 用 <text> 标注 2-4 个关键尺寸数字（字体大小 11-13，颜色 #43392F），配合一小段引线（<line> 或简单的 <path>）指向对应的边或部位，就像设计草图上常见的尺寸标注那样。
+- 画面居中，四周留一点空白，不要顶满整个 viewBox。
+- 如果物件形状比较复杂难以用简笔线条表达清楚（比如带弧度的椅子腿），可以只画最能体现整体比例和关键结构的一个角度，不用追求完全写实。
+
+只输出 JSON，sketchSvg 的值必须是合法的、能直接被浏览器解析的单行或多行 SVG 字符串。`;
 
 async function callQwen(userText){
   let resp;
   try{
-    resp = await fetch(`${QWEN_CONFIG.baseUrl}/chat/completions`, {
+    resp = await fetch(QWEN_CONFIG.proxyUrl, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${QWEN_CONFIG.apiKey}`
-      },
-      body: JSON.stringify({
-        model: QWEN_CONFIG.model,
-        messages: [
-          { role: 'system', content: AI_SYSTEM_PROMPT },
-          { role: 'user', content: userText }
-        ],
-        temperature: 0.4
-      })
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ systemPrompt: AI_SYSTEM_PROMPT, userText })
     });
   }catch(networkErr){
-    // fetch 本身抛错（不是 HTTP 状态码问题），常见原因是网络中断或浏览器跨域（CORS）拦截
-    throw new Error('网络请求被拦截，很可能是浏览器跨域（CORS）限制——请查看下方说明');
+    // fetch 本身抛错，通常是中转地址填错了、Vercel 项目没部署好，或者手机没联网
+    throw new Error('请求发不出去，检查一下代理地址是否正确、Vercel 项目是否已部署');
   }
   if(!resp.ok){
     let detail = '';
@@ -784,6 +864,7 @@ async function callQwen(userText){
     throw new Error(`HTTP ${resp.status}${detail ? ' — ' + detail : ''}`);
   }
   const data = await resp.json();
+  if(data.error) throw new Error(data.error.message || data.error);
   const raw = data.choices[0].message.content.trim().replace(/^```json\s*|```$/g, '');
   return JSON.parse(raw);
 }
@@ -792,10 +873,10 @@ async function generateDesign(){
   const text = document.getElementById('aiPrompt').value.trim();
   if(!text){ toast('请先描述一下你想做的作品'); return; }
 
-  const keyReady = QWEN_CONFIG.apiKey && QWEN_CONFIG.apiKey !== 'PASTE_YOUR_NEW_API_KEY_HERE';
-  if(!keyReady){
+  const proxyReady = QWEN_CONFIG.proxyUrl && !QWEN_CONFIG.proxyUrl.includes('PASTE_YOUR_VERCEL_PROJECT');
+  if(!proxyReady){
     renderAiResult(localFallbackTemplate(text), 'local');
-    toast('还没配置 API Key，先展示本地模板效果');
+    toast('还没配置 Vercel 中转地址，先展示本地模板效果');
     return;
   }
 
