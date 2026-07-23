@@ -1,0 +1,982 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="WoodFlow">
+<meta name="theme-color" content="#5B5045">
+<title>WoodFlow · 木作管理</title>
+<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%235B5045'/%3E%3Cpath d='M20 70 L50 20 L80 70 Z' fill='none' stroke='%23C9B79C' stroke-width='6'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@500;700;900&family=Noto+Sans+SC:wght@400;500;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#EDE6DA; --paper-deep:#E1D7C6; --ink:#43392F; --ink-soft:#8A7D6E;
+    --walnut:#6E5E4E; --walnut-deep:#4C4034; --amber:#B99A7D; --amber-deep:#9C7E62;
+    --moss:#93987F; --slate:#8C9291; --brick:#B08A79; --line:#DDD3C1; --card:#F7F2E7;
+    --shadow: 0 6px 16px rgba(76,64,52,0.10);
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;padding:0;}
+  body{font-family:'Noto Sans SC', sans-serif; background:var(--paper); color:var(--ink); min-height:100vh;
+    background-image:repeating-linear-gradient(180deg, rgba(92,58,34,0.025) 0px, rgba(92,58,34,0.025) 2px, transparent 2px, transparent 5px);}
+  .mono{font-family:'JetBrains Mono', monospace;}
+  .app{max-width:480px; margin:0 auto; min-height:100vh; display:flex; flex-direction:column; position:relative;}
+
+  .topbar{background:linear-gradient(160deg, var(--walnut) 0%, var(--walnut-deep) 100%); color:#F1E6D2; padding:20px 20px 16px; position:relative; overflow:hidden;}
+  .topbar::after{content:""; position:absolute; inset:0; background-image:repeating-linear-gradient(100deg, rgba(255,255,255,0.035) 0px, rgba(255,255,255,0.035) 1px, transparent 1px, transparent 10px); pointer-events:none;}
+  .topbar .eyebrow{font-size:11px; letter-spacing:0.14em; text-transform:uppercase; color:#D9A96A; font-weight:500; margin-bottom:5px;}
+  .topbar h1{font-family:'Noto Serif SC', serif; font-weight:700; font-size:21px; margin:0 0 3px; letter-spacing:0.02em;}
+  .topbar .sub{font-size:12px; color:#D8C4A6; opacity:0.9;}
+
+  .tabs{display:flex; background:var(--card); border-bottom:1px solid var(--line); position:sticky; top:0; z-index:20; box-shadow:0 2px 8px rgba(58,36,21,0.06);}
+  .tab-btn{flex:1; text-align:center; padding:10px 2px 9px; font-size:10.5px; font-weight:500; color:var(--ink-soft); background:none; border:none; cursor:pointer; border-bottom:3px solid transparent; display:flex; flex-direction:column; align-items:center; gap:3px; font-family:'Noto Sans SC', sans-serif;}
+  .tab-btn svg{width:17px; height:17px;}
+  .tab-btn.active{color:var(--amber-deep); border-bottom-color:var(--amber);}
+  .tab-btn.active svg{stroke:var(--amber-deep);}
+
+  main{flex:1; padding:16px 16px 90px; overflow-y:auto;}
+  .tab-panel{display:none; animation:fade .25s ease;}
+  .tab-panel.active{display:block;}
+  @keyframes fade{from{opacity:0; transform:translateY(4px);} to{opacity:1; transform:translateY(0);}}
+
+  .section-title{font-family:'Noto Serif SC', serif; font-weight:700; font-size:16px; margin:18px 0 10px; display:flex; align-items:center; gap:8px; color:var(--walnut-deep);}
+  .section-title:first-child{margin-top:2px;}
+  .section-title .tag{font-size:10.5px; font-weight:500; color:var(--amber-deep); background:rgba(192,121,58,0.14); padding:2px 8px; border-radius:20px; font-family:'Noto Sans SC', sans-serif;}
+
+  /* ===================== DASHBOARD ===================== */
+  .dash-date{font-size:12px; color:var(--ink-soft); margin-bottom:2px;}
+  .dash-hero{background:var(--card); border-radius:16px; padding:16px; box-shadow:var(--shadow); margin-bottom:14px; border:1px solid rgba(212,194,160,0.6); position:relative; overflow:hidden;}
+  .dash-hero::before{content:""; position:absolute; right:-30px; top:-30px; width:110px; height:110px; border-radius:50%; background:radial-gradient(circle, rgba(192,121,58,0.14), transparent 70%);}
+  .dash-hero-label{font-size:11px; color:var(--ink-soft); margin-bottom:8px; font-weight:500;}
+  .dash-proj-row{display:flex; align-items:center; gap:12px;}
+  .dash-proj-thumb{width:52px; height:52px; border-radius:10px; flex-shrink:0; background:linear-gradient(135deg,#6E5E4E,#9C8A73); display:flex; align-items:center; justify-content:center;}
+  .dash-proj-thumb svg{width:60%; height:60%;}
+  .dash-proj-name{font-weight:700; font-size:15px;}
+  .dash-proj-sub{font-size:11.5px; color:var(--ink-soft); margin-top:2px;}
+  .dash-progress-track{flex:1; height:8px; background:var(--paper-deep); border-radius:6px; overflow:hidden; margin-top:8px;}
+  .dash-progress-fill{height:100%; background:linear-gradient(90deg, var(--amber-deep), var(--amber)); border-radius:6px;}
+
+  .dash-grid{display:grid; grid-template-columns:1fr 1fr; gap:11px; margin-bottom:14px;}
+  .dash-stat{background:var(--card); border-radius:13px; padding:12px 13px; box-shadow:var(--shadow); border-left:4px solid var(--stat-color, var(--amber));}
+  .dash-stat .n{font-family:'JetBrains Mono', monospace; font-weight:700; font-size:21px; color:var(--ink);}
+  .dash-stat .l{font-size:11.5px; color:var(--ink-soft); margin-top:1px;}
+
+  .dash-alert{display:flex; align-items:center; gap:11px; background:rgba(156,68,48,0.08); border:1px solid rgba(156,68,48,0.25); border-radius:12px; padding:12px 13px; margin-bottom:12px;}
+  .dash-alert .icon{font-size:18px;}
+  .dash-alert .txt{font-size:12.5px; color:var(--brick); font-weight:500; line-height:1.5;}
+  .dash-alert .txt b{font-weight:700;}
+
+  .dash-two-col{display:flex; gap:11px; margin-bottom:12px;}
+  .dash-mini-card{flex:1; background:var(--card); border-radius:12px; padding:12px 13px; box-shadow:var(--shadow);}
+  .dash-mini-card .h{font-size:11px; color:var(--ink-soft); margin-bottom:6px; display:flex; align-items:center; gap:5px;}
+  .dash-mini-card .body{font-size:13px; font-weight:600;}
+  .dash-mini-card .body span{font-weight:400; color:var(--ink-soft); font-size:11.5px;}
+
+  .ai-tip-card{background:linear-gradient(135deg, rgba(94,107,71,0.10), rgba(94,107,71,0.03)); border:1px solid rgba(94,107,71,0.28); border-radius:13px; padding:13px 14px; display:flex; gap:11px; align-items:flex-start;}
+  .ai-tip-icon{width:32px; height:32px; border-radius:9px; background:var(--moss); flex-shrink:0; display:flex; align-items:center; justify-content:center; font-size:16px;}
+  .ai-tip-title{font-size:12px; font-weight:700; color:var(--moss); margin-bottom:3px;}
+  .ai-tip-text{font-size:12.5px; color:var(--ink); line-height:1.55;}
+  .ai-tip-text a{color:var(--amber-deep); font-weight:600; cursor:pointer;}
+
+  /* ===================== PROJECT MUSEUM ===================== */
+  .proj-toolbar{display:flex; gap:8px; margin-bottom:12px;}
+  .proj-add-btn{flex-shrink:0; padding:9px 15px; border-radius:10px; border:1.5px dashed var(--amber-deep); background:rgba(192,121,58,0.06); color:var(--amber-deep); font-weight:600; font-size:12.5px; cursor:pointer;}
+  .proj-filter{flex:1; display:flex; gap:6px; overflow-x:auto;}
+  .filter-chip{flex-shrink:0; padding:8px 13px; border-radius:20px; border:1px solid var(--line); background:var(--card); font-size:11.5px; color:var(--ink-soft); font-weight:500; cursor:pointer; white-space:nowrap;}
+  .filter-chip.active{background:var(--walnut); color:#F1E6D2; border-color:var(--walnut);}
+
+  .proj-grid{display:grid; grid-template-columns:1fr 1fr; gap:11px;}
+  .proj-card{background:var(--card); border-radius:14px; overflow:hidden; box-shadow:var(--shadow); cursor:pointer; border:1px solid rgba(212,194,160,0.6);}
+  .proj-cover{width:100%; aspect-ratio:1; background-size:cover; background-position:center; display:flex; align-items:flex-end; position:relative;}
+  .proj-cover.placeholder{display:flex; align-items:center; justify-content:center;}
+  .proj-cover.placeholder svg{width:44%; height:44%;}
+  .proj-status-pill{position:absolute; top:8px; left:8px; font-size:9.5px; font-weight:700; padding:3px 8px; border-radius:20px; background:rgba(43,29,20,0.65); color:#F1E6D2;}
+  .proj-body{padding:9px 11px 11px;}
+  .proj-name{font-weight:700; font-size:13px; margin-bottom:3px;}
+  .proj-meta{font-size:10.5px; color:var(--ink-soft); margin-bottom:6px;}
+  .proj-mini-track{height:5px; background:var(--paper-deep); border-radius:4px; overflow:hidden;}
+  .proj-mini-fill{height:100%; background:linear-gradient(90deg, var(--amber-deep), var(--amber));}
+
+  /* ===================== AI DESIGN CENTER ===================== */
+  .ai-input-card{background:var(--card); border-radius:16px; padding:16px; box-shadow:var(--shadow); margin-bottom:14px;}
+  .ai-input-card textarea{width:100%; min-height:78px; border:1px solid var(--line); border-radius:11px; padding:11px 12px; font-size:13.5px; font-family:'Noto Sans SC', sans-serif; resize:none; background:#fff; color:var(--ink);}
+  .ai-quick-tags{display:flex; flex-wrap:wrap; gap:7px; margin:10px 0;}
+  .quick-tag{font-size:11.5px; padding:6px 12px; border-radius:20px; background:var(--paper); border:1px solid var(--line); color:var(--ink-soft); cursor:pointer; font-weight:500;}
+  .ai-gen-btn{width:100%; padding:13px; border-radius:12px; border:none; background:var(--walnut); color:#F1E6D2; font-weight:700; font-size:14px; cursor:pointer; letter-spacing:.02em; margin-top:2px;}
+
+  .ai-result{background:var(--card); border-radius:16px; padding:16px; box-shadow:var(--shadow);}
+  .ai-result-head{display:flex; align-items:center; gap:10px; margin-bottom:14px; padding-bottom:14px; border-bottom:1px dashed var(--line);}
+  .ai-result-head .badge{width:38px; height:38px; border-radius:10px; background:var(--moss); display:flex; align-items:center; justify-content:center; font-size:18px; flex-shrink:0;}
+  .ai-result-head .t{font-family:'Noto Serif SC', serif; font-weight:700; font-size:16px;}
+  .ai-result-head .s{font-size:11px; color:var(--ink-soft);}
+  .ai-dim-table{width:100%; border-collapse:collapse; margin-bottom:14px;}
+  .ai-dim-table tr{border-bottom:1px solid var(--line);}
+  .ai-dim-table tr:last-child{border-bottom:none;}
+  .ai-dim-table td{padding:8px 4px; font-size:12.5px;}
+  .ai-dim-table td:first-child{color:var(--ink-soft); width:38%;}
+  .ai-dim-table td:last-child{font-weight:700; font-family:'JetBrains Mono', monospace; color:var(--ink);}
+  .ai-info-grid{display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:14px;}
+  .ai-info-box{background:var(--paper); border-radius:10px; padding:10px 11px;}
+  .ai-info-box .k{font-size:10.5px; color:var(--ink-soft); margin-bottom:3px;}
+  .ai-info-box .v{font-size:13px; font-weight:700;}
+  .ai-finish-note{background:rgba(61,85,102,0.08); border:1px solid rgba(61,85,102,0.25); border-radius:11px; padding:11px 13px; font-size:12.5px; color:var(--slate); line-height:1.6; margin-bottom:14px;}
+  .ai-finish-note b{color:var(--ink);}
+  .ai-actions{display:flex; gap:9px;}
+  .ai-actions button{flex:1; padding:11px; border-radius:11px; border:none; font-size:12.5px; font-weight:700; cursor:pointer;}
+  .ai-actions .create{background:var(--amber-deep); color:#fff;}
+  .ai-actions .save{background:var(--paper); color:var(--ink-soft); border:1px solid var(--line);}
+
+  /* ===================== STOCK (木料台账) ===================== */
+  .stock-card{background:var(--card); border-radius:14px; padding:14px 15px; margin-bottom:11px; box-shadow:var(--shadow); border:1px solid rgba(212,194,160,0.6); position:relative; overflow:hidden;}
+  .stock-card::before{content:""; position:absolute; left:0; top:0; bottom:0; width:5px; background:var(--bar-color, var(--amber));}
+  .stock-top{display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:8px;}
+  .stock-name{font-weight:700; font-size:15px; color:var(--ink);}
+  .stock-source{font-size:11.5px; color:var(--ink-soft); margin-top:2px;}
+  .risk-pill{font-size:10.5px; font-weight:600; padding:3px 8px; border-radius:20px; white-space:nowrap;}
+  .risk-低{background:rgba(94,107,71,0.16); color:var(--moss);}
+  .risk-中{background:rgba(192,121,58,0.16); color:var(--amber-deep);}
+  .risk-高{background:rgba(156,68,48,0.16); color:var(--brick);}
+  .stock-meta{display:grid; grid-template-columns:1fr 1fr; gap:6px 12px; font-size:11.5px; color:var(--ink-soft); margin-bottom:10px;}
+  .stock-meta b{color:var(--ink); font-weight:600;}
+  .remain-row{display:flex; align-items:center; gap:10px; margin-bottom:6px;}
+  .remain-label{font-size:11.5px; color:var(--ink-soft); width:56px; flex-shrink:0;}
+  .remain-track{flex:1; height:8px; background:var(--paper-deep); border-radius:6px; overflow:hidden;}
+  .remain-fill{height:100%; border-radius:6px; background:linear-gradient(90deg, var(--amber-deep), var(--amber)); transition:width .4s ease;}
+  .remain-pct{font-size:12px; font-weight:700; width:38px; text-align:right; font-family:'JetBrains Mono', monospace;}
+  .card-actions{display:flex; gap:8px; margin-top:10px;}
+  .btn-mini{flex:1; font-size:12px; padding:7px 0; border-radius:9px; border:1px solid var(--line); background:var(--paper); color:var(--ink-soft); font-weight:500; cursor:pointer;}
+  .btn-mini.primary{background:var(--walnut); color:#F1E6D2; border-color:var(--walnut);}
+  .deduct-panel{display:none; margin-top:10px; padding-top:10px; border-top:1px dashed var(--line);}
+  .deduct-panel.open{display:block;}
+  .deduct-row{display:flex; gap:8px; align-items:center;}
+  .deduct-row input{flex:1; padding:8px 10px; border-radius:9px; border:1px solid var(--line); font-size:13px; background:#fff; font-family:'JetBrains Mono', monospace;}
+  .deduct-row button{padding:8px 14px; border-radius:9px; border:none; background:var(--amber-deep); color:#fff; font-size:12.5px; font-weight:600; cursor:pointer;}
+  .deduct-hint{font-size:10.5px; color:var(--ink-soft); margin-top:5px;}
+  .add-stock-btn{width:100%; padding:12px; border-radius:12px; border:1.5px dashed var(--amber-deep); background:rgba(192,121,58,0.06); color:var(--amber-deep); font-weight:600; font-size:13px; cursor:pointer; margin-top:4px;}
+
+  .nest-form{background:var(--card); border-radius:14px; padding:15px; box-shadow:var(--shadow); margin-bottom:14px;}
+  .field-row{display:flex; gap:10px; margin-bottom:10px;}
+  .field{flex:1;}
+  .field label{font-size:11px; color:var(--ink-soft); display:block; margin-bottom:4px;}
+  .field input, .field select{width:100%; padding:9px 10px; border-radius:9px; border:1px solid var(--line); background:#fff; font-size:13px; font-family:'JetBrains Mono', monospace; color:var(--ink);}
+  .parts-list{margin:10px 0;}
+  .part-row{display:grid; grid-template-columns:1fr 1fr 1fr 50px 30px; gap:6px; align-items:center; margin-bottom:7px;}
+  .part-row input{padding:7px 8px; font-size:12px;}
+  .part-row .del{background:none; border:none; color:var(--brick); font-size:16px; cursor:pointer; line-height:1;}
+  .add-part-btn{font-size:12px; color:var(--amber-deep); background:none; border:none; cursor:pointer; font-weight:600; padding:4px 0;}
+  .kerf-note{font-size:10.5px; color:var(--ink-soft); margin:4px 0 10px;}
+  .nest-btn{width:100%; padding:12px; border-radius:11px; border:none; background:var(--walnut); color:#F1E6D2; font-weight:700; font-size:14px; cursor:pointer;}
+  .nest-result{background:var(--card); border-radius:14px; padding:15px; box-shadow:var(--shadow);}
+  .nest-stats{display:flex; gap:10px; margin-bottom:12px;}
+  .stat-box{flex:1; text-align:center; background:var(--paper); border-radius:10px; padding:10px 4px;}
+  .stat-box .v{font-family:'JetBrains Mono', monospace; font-weight:700; font-size:19px; color:var(--walnut-deep);}
+  .stat-box .l{font-size:10.5px; color:var(--ink-soft); margin-top:2px;}
+  .stat-box.util .v{color:var(--moss);}
+  .stat-box.waste .v{color:var(--brick);}
+  #nestSvgWrap{background:repeating-linear-gradient(90deg, #EFE3C9 0 8px, #E9DBBB 8px 16px); border-radius:10px; padding:10px; border:1px solid var(--line);}
+  .nest-legend{display:flex; flex-wrap:wrap; gap:8px; margin-top:10px;}
+  .legend-chip{display:flex; align-items:center; gap:5px; font-size:11px; color:var(--ink-soft);}
+  .legend-chip .sw{width:11px; height:11px; border-radius:3px; flex-shrink:0;}
+  .nest-empty{font-size:12.5px; color:var(--ink-soft); text-align:center; padding:26px 10px;}
+
+  .region-toggle{display:flex; gap:8px; margin-bottom:14px;}
+  .region-btn{flex:1; padding:10px 6px; border-radius:10px; border:1px solid var(--line); background:var(--card); font-size:12.5px; font-weight:600; color:var(--ink-soft); cursor:pointer; text-align:center;}
+  .region-btn.active{background:var(--slate); color:#fff; border-color:var(--slate);}
+  .humid-banner{background:linear-gradient(135deg, rgba(61,85,102,0.10), rgba(61,85,102,0.03)); border:1px solid rgba(61,85,102,0.25); border-radius:12px; padding:12px 14px; margin-bottom:14px; font-size:12.5px; color:var(--slate); font-weight:500; line-height:1.6;}
+  .humid-banner b{color:var(--ink);}
+  .risk-card{background:var(--card); border-radius:13px; padding:13px 14px; margin-bottom:10px; box-shadow:var(--shadow); border-left:4px solid var(--risk-color, var(--moss)); display:flex; justify-content:space-between; align-items:center; gap:10px;}
+  .risk-card .name{font-weight:700; font-size:14px;}
+  .risk-card .desc{font-size:11.5px; color:var(--ink-soft); margin-top:3px; line-height:1.5;}
+  .risk-badge{font-size:11px; font-weight:700; padding:5px 10px; border-radius:20px; flex-shrink:0; color:#fff; background:var(--risk-color, var(--moss));}
+
+  /* ===================== JOINT LIBRARY ===================== */
+  /* ===================== MODAL (shared) ===================== */
+  .modal-backdrop{position:fixed; inset:0; background:rgba(43,29,20,0.55); z-index:100; display:none; align-items:flex-end; justify-content:center;}
+  .modal-backdrop.open{display:flex;}
+  .modal-sheet{background:var(--paper); width:100%; max-width:480px; border-radius:20px 20px 0 0; max-height:88vh; overflow-y:auto; padding:0 0 26px; animation:slideUp .3s ease;}
+  @keyframes slideUp{from{transform:translateY(30px); opacity:0;} to{transform:translateY(0); opacity:1;}}
+  .modal-handle{width:38px; height:4px; background:var(--line); border-radius:4px; margin:10px auto 4px;}
+  .modal-head{background:linear-gradient(160deg, var(--walnut), var(--walnut-deep)); color:#F1E6D2; padding:16px 20px 18px; border-radius:14px; margin:6px 14px 14px; position:relative; overflow:hidden;}
+  .modal-head-icon{width:56px; height:56px; background:rgba(241,230,210,0.12); border-radius:12px; display:flex; align-items:center; justify-content:center; margin-bottom:10px;}
+  .modal-head-icon svg{width:70%; height:70%;}
+  .modal-head h2{font-family:'Noto Serif SC',serif; font-size:19px; margin:0 0 4px;}
+  .modal-head .mh-sub{font-size:12px; color:#D8C4A6;}
+  .modal-body{padding:0 20px;}
+  .info-grid{display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:16px;}
+  .info-box{background:var(--card); border-radius:10px; padding:10px 11px;}
+  .info-box .k{font-size:10.5px; color:var(--ink-soft); margin-bottom:3px;}
+  .info-box .v{font-size:13px; font-weight:600; color:var(--ink);}
+  .modal-sub-title{font-size:13px; font-weight:700; color:var(--walnut-deep); margin:16px 0 8px; display:flex; align-items:center; gap:6px;}
+  .tool-chips{display:flex; flex-wrap:wrap; gap:7px; margin-bottom:6px;}
+  .tool-chip{font-size:11.5px; padding:5px 11px; border-radius:20px; background:rgba(61,85,102,0.1); color:var(--slate); font-weight:500;}
+  .step-item{display:flex; gap:10px; align-items:flex-start; padding:9px 0; border-bottom:1px solid var(--line);}
+  .step-item:last-child{border-bottom:none;}
+  .step-check{width:20px; height:20px; border-radius:6px; border:2px solid var(--line); flex-shrink:0; margin-top:1px; display:flex; align-items:center; justify-content:center; cursor:pointer; font-size:12px; color:#fff;}
+  .step-check.checked{background:var(--moss); border-color:var(--moss);}
+  .step-text{font-size:13px; line-height:1.5; color:var(--ink);}
+  .step-text.done{text-decoration:line-through; color:var(--ink-soft);}
+  .attach-btn{width:100%; padding:13px; border-radius:12px; border:none; background:var(--amber-deep); color:#fff; font-weight:700; font-size:14px; margin-top:16px; cursor:pointer;}
+  .close-modal{position:absolute; top:14px; right:16px; background:rgba(241,230,210,0.15); border:none; color:#F1E6D2; width:28px; height:28px; border-radius:50%; font-size:15px; cursor:pointer;}
+
+  .photo-upload-row{display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:14px;}
+  .photo-slot{aspect-ratio:1; border-radius:11px; border:1.5px dashed var(--line); background:var(--card); display:flex; flex-direction:column; align-items:center; justify-content:center; font-size:10.5px; color:var(--ink-soft); cursor:pointer; overflow:hidden; position:relative; text-align:center; gap:4px;}
+  .photo-slot img{width:100%; height:100%; object-fit:cover; position:absolute; inset:0;}
+  .photo-slot span{position:relative; z-index:1;}
+
+  #toast{position:fixed; bottom:26px; left:50%; transform:translateX(-50%) translateY(20px); background:var(--ink); color:var(--paper); padding:11px 20px; border-radius:30px; font-size:12.5px; font-weight:500; opacity:0; transition:all .3s ease; z-index:200; pointer-events:none; white-space:nowrap; box-shadow:0 8px 20px rgba(0,0,0,0.25);}
+  #toast.show{opacity:1; transform:translateX(-50%) translateY(0);}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <div class="topbar">
+    <div class="eyebrow">WoodFlow · 木作管理</div>
+    <h1 id="topTitle">今天</h1>
+    <div class="sub" id="topSub">7月15日 · 星期三</div>
+  </div>
+
+  <div class="tabs">
+    <button class="tab-btn active" data-tab="dash">
+      <svg viewBox="0 0 24 24" fill="none" stroke="var(--amber-deep)" stroke-width="1.8"><rect x="3" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="3" width="8" height="5" rx="1.5"/><rect x="13" y="10" width="8" height="11" rx="1.5"/><rect x="3" y="13" width="8" height="8" rx="1.5"/></svg>
+      首页
+    </button>
+    <button class="tab-btn" data-tab="project">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="8" height="8"/><rect x="13" y="4" width="8" height="8"/><rect x="3" y="14" width="8" height="6"/><rect x="13" y="14" width="8" height="6"/></svg>
+      作品
+    </button>
+    <button class="tab-btn" data-tab="ai">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3 L14 9 L20 11 L14 13 L12 19 L10 13 L4 11 L10 9 Z"/></svg>
+      AI设计
+    </button>
+    <button class="tab-btn" data-tab="stock">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="7" width="18" height="4"/><rect x="3" y="13" width="18" height="4"/></svg>
+      木料
+    </button>
+  </div>
+
+  <main>
+
+    <!-- ================= 首页 Dashboard ================= -->
+    <section class="tab-panel active" id="tab-dash">
+
+      <div class="section-title">继续制作</div>
+      <div id="dashHeroWrap"></div>
+
+      <div class="section-title">作品概览</div>
+      <div class="dash-grid" id="dashStatGrid"></div>
+
+      <div id="dashAlertWrap"></div>
+
+      <div class="dash-two-col">
+        <div class="dash-mini-card" onclick="toast('灵感收藏夹还没做，这是个占位入口')">
+          <div class="h">💡 最近灵感</div>
+          <div class="body">敬请期待 <span>灵感收藏功能</span></div>
+        </div>
+        <div class="dash-mini-card" onclick="switchTab('project')">
+          <div class="h">📚 全部作品</div>
+          <div class="body">点击查看 <span>作品收录博物馆</span></div>
+        </div>
+      </div>
+
+      <div class="section-title">AI 推荐</div>
+      <div class="ai-tip-card">
+        <div class="ai-tip-icon">🤖</div>
+        <div>
+          <div class="ai-tip-title">结构优化建议</div>
+          <div class="ai-tip-text" id="aiTipText">去「AI 设计中心」描述一件作品，这里会同步给出结构建议。</div>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- ================= 作品收录博物馆 ================= -->
+    <section class="tab-panel" id="tab-project">
+      <div class="proj-toolbar">
+        <div class="proj-filter" id="projFilter"></div>
+        <button class="proj-add-btn" onclick="openNewProject()">+ 新作品</button>
+      </div>
+      <div class="proj-grid" id="projGrid"></div>
+    </section>
+
+    <!-- ================= AI 设计中心 ================= -->
+    <section class="tab-panel" id="tab-ai">
+      <div class="section-title">描述你想做的作品</div>
+      <div class="ai-input-card">
+        <textarea id="aiPrompt" placeholder="例如：我要做一双胡桃木筷子，中式风格；或者：想给厨房做一块橡木砧板"></textarea>
+        <div class="ai-quick-tags">
+          <div class="quick-tag" onclick="fillPrompt('黑胡桃筷子，中式风格')">🥢 中式筷子</div>
+          <div class="quick-tag" onclick="fillPrompt('白橡木砧板，厨房日常用')">🔪 厨房砧板</div>
+          <div class="quick-tag" onclick="fillPrompt('樱桃木笔筒，办公桌摆放')">✏️ 桌面笔筒</div>
+          <div class="quick-tag" onclick="fillPrompt('胡桃木首饰盒，送人用')">💍 首饰盒</div>
+        </div>
+        <button class="ai-gen-btn" onclick="generateDesign()">✦ AI 生成设计方案</button>
+      </div>
+      <div id="aiResultWrap"></div>
+    </section>
+
+    <!-- ================= 木料库存 ================= -->
+    <section class="tab-panel" id="tab-stock">
+      <div class="section-title">在库木料 <span class="tag" id="stockCount">4 种</span></div>
+      <div id="stockList"></div>
+      <button class="add-stock-btn" onclick="toast('已打开新增木料表单（原型演示）')">+ 登记新到货木料</button>
+
+      <div class="section-title">下料排版</div>
+      <div class="nest-form">
+        <div class="field-row">
+          <div class="field"><label>板材长 (cm)</label><input type="number" id="boardL" value="200"></div>
+          <div class="field"><label>板材宽 (cm)</label><input type="number" id="boardW" value="30"></div>
+        </div>
+        <div class="section-title" style="margin-top:4px; font-size:13px;">零件清单</div>
+        <div class="parts-list" id="partsList"></div>
+        <button class="add-part-btn" onclick="addPartRow()">＋ 添加零件规格</button>
+        <div class="kerf-note">已计入 3mm 锯缝损耗，自动在每个零件尺寸上预留</div>
+        <button class="nest-btn" onclick="runNest()">AI 排版 · 计算利用率</button>
+      </div>
+      <div id="nestResultWrap"></div>
+
+      <div class="section-title">湿度 / 开裂提醒</div>
+      <div class="region-toggle">
+        <button class="region-btn active" data-region="south" onclick="setRegion('south')">南方 · 梅雨季</button>
+        <button class="region-btn" data-region="north" onclick="setRegion('north')">北方 · 干燥季</button>
+      </div>
+      <div class="humid-banner" id="humidBanner"></div>
+      <div id="riskList"></div>
+    </section>
+
+  </main>
+</div>
+
+<!-- 作品详情弹窗 -->
+<div class="modal-backdrop" id="projModal">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <button class="close-modal" onclick="closeModal('projModal')">✕</button>
+    <div class="modal-head">
+      <div class="modal-head-icon"><svg viewBox="0 0 24 24" fill="none" stroke="#F1E6D2" stroke-width="1.6"><rect x="4" y="4" width="16" height="16" rx="2"/></svg></div>
+      <h2 id="pModalName"></h2>
+      <div class="mh-sub" id="pModalSub"></div>
+    </div>
+    <div class="modal-body">
+      <div class="modal-sub-title">📷 图片记录</div>
+      <div class="photo-upload-row">
+        <div class="photo-slot" id="slotSketch" onclick="document.getElementById('fileSketch').click()">
+          <span>设计草图<br>点击上传</span>
+          <input type="file" id="fileSketch" accept="image/*" style="display:none" onchange="uploadPhoto(this,'slotSketch','sketch')">
+        </div>
+        <div class="photo-slot" id="slotReal" onclick="document.getElementById('fileReal').click()">
+          <span>作品实物<br>点击上传</span>
+          <input type="file" id="fileReal" accept="image/*" style="display:none" onchange="uploadPhoto(this,'slotReal','real')">
+        </div>
+      </div>
+      <div class="info-grid">
+        <div class="info-box"><div class="k">原材料</div><div class="v" id="pModalMaterial"></div></div>
+        <div class="info-box"><div class="k">制作周期</div><div class="v" id="pModalCycle"></div></div>
+        <div class="info-box"><div class="k">测量尺寸</div><div class="v" id="pModalDims"></div></div>
+        <div class="info-box"><div class="k">当前状态</div><div class="v" id="pModalStatus"></div></div>
+      </div>
+      <div class="modal-sub-title">📝 制作笔记</div>
+      <div style="font-size:12.5px; color:var(--ink-soft); line-height:1.6; background:var(--card); border-radius:10px; padding:11px 12px;" id="pModalNote"></div>
+      <button class="attach-btn" style="background:var(--brick); margin-top:20px;" id="deleteProjBtn">🗑 删除这个作品</button>
+    </div>
+  </div>
+</div>
+
+<!-- 新建作品弹窗 -->
+<div class="modal-backdrop" id="newProjModal">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <button class="close-modal" onclick="closeModal('newProjModal')">✕</button>
+    <div class="modal-head">
+      <div class="modal-head-icon"><svg viewBox="0 0 24 24" fill="none" stroke="#F7F2E7" stroke-width="1.6"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></div>
+      <h2>新建作品</h2>
+      <div class="mh-sub">登记一件正在做或已完成的作品</div>
+    </div>
+    <div class="modal-body">
+      <div class="field" style="margin-bottom:10px;"><label>作品名称</label><input type="text" id="npName" placeholder="例如：黑胡桃收纳盒"></div>
+      <div class="field-row">
+        <div class="field"><label>主要木料</label><input type="text" id="npWood" placeholder="黑胡桃 / 白橡木 / 樱桃木…"></div>
+        <div class="field"><label>制作状态</label>
+          <select id="npStatus">
+            <option value="进行中">进行中</option>
+            <option value="已完成">已完成</option>
+            <option value="搁置">搁置</option>
+          </select>
+        </div>
+      </div>
+      <div class="field-row">
+        <div class="field"><label>测量尺寸</label><input type="text" id="npDims" placeholder="220×160×90 mm"></div>
+        <div class="field"><label>制作周期</label><input type="text" id="npCycle" placeholder="例如：9 / 15 天"></div>
+      </div>
+      <div class="field" style="margin-bottom:14px;"><label>制作笔记（选填）</label><input type="text" id="npNote" placeholder="随手记点想法"></div>
+      <button class="nest-btn" onclick="submitNewProject()">保存作品</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+/* ========================= 通用 ========================= */
+let toastTimer;
+function toast(msg){
+  const el = document.getElementById('toast');
+  el.textContent = msg; el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(()=>el.classList.remove('show'), 2200);
+}
+function closeModal(id){ document.getElementById(id).classList.remove('open'); }
+function switchTab(name){ document.querySelector(`.tab-btn[data-tab="${name}"]`).click(); }
+
+const tabTitles = {
+  dash:['今天','7月15日 · 星期三'],
+  project:['作品收录','7 件作品 · 2 件进行中'],
+  ai:['AI 设计中心','说出想法，AI 给你精确尺寸与用料建议'],
+  stock:['木料库存','库存 · 下料排版 · 湿度提醒'],
+};
+document.querySelectorAll('.tab-btn').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('tab-'+btn.dataset.tab).classList.add('active');
+    document.getElementById('topTitle').textContent = tabTitles[btn.dataset.tab][0];
+    document.getElementById('topSub').textContent = tabTitles[btn.dataset.tab][1];
+    if(btn.dataset.tab==='dash') renderDashboard();
+  });
+});
+
+/* ========================= 首页 Dashboard（数据驱动） ========================= */
+function renderDashboard(){
+  // 继续制作：取第一个"进行中"的作品作为主卡片
+  const active = projectsData.filter(p=>p.status==='进行中');
+  const heroWrap = document.getElementById('dashHeroWrap');
+  if(active.length){
+    const hero = active[0];
+    heroWrap.innerHTML = `
+      <div class="dash-hero" style="cursor:pointer;" onclick="switchTab('project'); setTimeout(()=>openProject(${hero.id}),150)">
+        <div class="dash-hero-label">进行中的作品${active.length>1 ? `（共 ${active.length} 件，显示最新一件）` : ''}</div>
+        <div class="dash-proj-row">
+          <div class="dash-proj-thumb" style="background:${hero.grad}">${hero.icon}</div>
+          <div style="flex:1;">
+            <div class="dash-proj-name">${hero.name}</div>
+            <div class="dash-proj-sub">${hero.wood} · ${hero.cycle}</div>
+          </div>
+          <div style="font-family:'JetBrains Mono',monospace; font-weight:700; font-size:18px; color:var(--amber-deep);">${hero.progress}%</div>
+        </div>
+        <div class="dash-progress-track"><div class="dash-progress-fill" style="width:${hero.progress}%"></div></div>
+      </div>`;
+  } else {
+    heroWrap.innerHTML = `<div class="dash-hero" style="cursor:pointer; text-align:center; padding:26px 16px;" onclick="switchTab('project'); setTimeout(openNewProject,150)">
+      <div style="font-size:13px; color:var(--ink-soft);">还没有进行中的作品</div>
+      <div style="font-size:12px; color:var(--amber-deep); font-weight:600; margin-top:6px;">点这里新建一个 →</div>
+    </div>`;
+  }
+
+  // 作品概览：真实统计，点击直接跳转并按状态筛选
+  const counts = {
+    进行中: projectsData.filter(p=>p.status==='进行中').length,
+    已完成: projectsData.filter(p=>p.status==='已完成').length,
+    搁置: projectsData.filter(p=>p.status==='搁置').length,
+  };
+  const lowStockCount = stockData.filter(s=>s.remain<20).length;
+  const statColor = {进行中:'var(--slate)', 已完成:'var(--moss)', 搁置:'var(--ink-soft)'};
+  document.getElementById('dashStatGrid').innerHTML = `
+    ${Object.entries(counts).map(([label,n])=>`
+      <div class="dash-stat" style="--stat-color:${statColor[label]}; cursor:pointer;" onclick="switchTab('project'); setProjFilter('${label}')"><div class="n">${n}</div><div class="l">${label}</div></div>
+    `).join('')}
+    <div class="dash-stat" style="--stat-color:var(--brick); cursor:pointer;" onclick="switchTab('stock')"><div class="n">${lowStockCount}</div><div class="l">材料告急</div></div>
+  `;
+
+  // 材料库存提醒：真实取剩余量最低的一种木料
+  const lowest = [...stockData].sort((a,b)=>a.remain-b.remain)[0];
+  const alertWrap = document.getElementById('dashAlertWrap');
+  if(lowest && lowest.remain < 25){
+    alertWrap.innerHTML = `
+      <div class="dash-alert" style="cursor:pointer;" onclick="switchTab('stock')">
+        <div class="icon">🪵</div>
+        <div class="txt">材料库存提醒：<b>${lowest.name.split(' ')[0]}剩余 ${lowest.remain}%</b>，建议提前订购或安排下料</div>
+      </div>`;
+  } else {
+    alertWrap.innerHTML = '';
+  }
+}
+
+/* ========================= 作品收录博物馆 ========================= */
+const SEED_PROJECTS = [
+  {id:1, name:'Walnut Box', wood:'黑胡桃', status:'进行中', progress:60, cycle:'9 / 15 天', dims:'220×160×90 mm',
+    grad:'linear-gradient(135deg,#6E5E4E,#9C8A73)', note:'盒盖转角计划改用燕尾榫，今天完成了盒身四面的粗刨。',
+    icon:`<svg viewBox="0 0 24 24" fill="none" stroke="#F7F2E7" stroke-width="1.5"><rect x="4" y="8" width="16" height="12" rx="1.5"/><path d="M4 8 L12 3 L20 8"/></svg>`},
+  {id:2, name:'中式筷子一套', wood:'黑胡桃', status:'进行中', progress:30, cycle:'3 / 6 天', dims:'240×0.9(顶)-0.5(底) cm',
+    grad:'linear-gradient(135deg,#9C8A73,#B8A99A)', note:'已完成粗坯，明天开始四棱倒角。',
+    icon:`<svg viewBox="0 0 24 24" fill="none" stroke="#F7F2E7" stroke-width="1.5"><line x1="7" y1="3" x2="7" y2="21"/><line x1="12" y1="3" x2="12" y2="21"/></svg>`},
+  {id:3, name:'圈椅腿部试作', wood:'白橡木', status:'已完成', progress:100, cycle:'21 天', dims:'座高 460 mm',
+    grad:'linear-gradient(135deg,#B8A99A,#8A7D6E)', note:'走马销结构，可拆卸测试通过，运输方便。',
+    icon:`<svg viewBox="0 0 24 24" fill="none" stroke="#F7F2E7" stroke-width="1.5"><path d="M6 20 V10 L18 6 V20"/></svg>`},
+  {id:4, name:'樱桃木笔筒', wood:'樱桃木', status:'已完成', progress:100, cycle:'5 天', dims:'ø95×130 mm',
+    grad:'linear-gradient(135deg,#B08A79,#C9A895)', note:'第一次尝试车床挖空，壁厚控制在 8mm 左右。',
+    icon:`<svg viewBox="0 0 24 24" fill="none" stroke="#F7F2E7" stroke-width="1.5"><rect x="7" y="4" width="10" height="16" rx="2"/></svg>`},
+  {id:5, name:'紫光檀香台', wood:'紫光檀边角料', status:'已完成', progress:100, cycle:'8 天', dims:'120×120×30 mm',
+    grad:'linear-gradient(135deg,#4C4034,#6E5E4E)', note:'边角料利用练习，用了十字半搭榫做底座。',
+    icon:`<svg viewBox="0 0 24 24" fill="none" stroke="#F7F2E7" stroke-width="1.5"><rect x="4" y="14" width="16" height="6"/><circle cx="12" cy="8" r="3"/></svg>`},
+  {id:6, name:'橡木砧板', wood:'白橡木', status:'搁置', progress:15, cycle:'2 / 10 天', dims:'400×250×30 mm',
+    grad:'linear-gradient(135deg,#8A7D6E,#B8A99A)', note:'木料含水率偏高，等南方梅雨季过后再继续。',
+    icon:`<svg viewBox="0 0 24 24" fill="none" stroke="#F7F2E7" stroke-width="1.5"><rect x="4" y="8" width="16" height="10" rx="2"/></svg>`},
+  {id:7, name:'屏风棂格试样', wood:'樱桃木', status:'搁置', progress:8, cycle:'1 / 20 天', dims:'待定',
+    grad:'linear-gradient(135deg,#C9A895,#B08A79)', note:'十字半搭榫的交叉角度还需要再练习。',
+    icon:`<svg viewBox="0 0 24 24" fill="none" stroke="#F7F2E7" stroke-width="1.5"><line x1="4" y1="4" x2="20" y2="20"/><line x1="20" y1="4" x2="4" y2="20"/></svg>`},
+];
+const LS_KEY_PROJECTS = 'wc_projects_v1';
+const NEW_PROJECT_GRADS = ['linear-gradient(135deg,#6E5E4E,#9C8A73)','linear-gradient(135deg,#B8A99A,#8A7D6E)','linear-gradient(135deg,#B08A79,#C9A895)','linear-gradient(135deg,#93987F,#B8A99A)','linear-gradient(135deg,#8C9291,#B8A99A)'];
+const DEFAULT_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="#F7F2E7" stroke-width="1.5"><circle cx="12" cy="12" r="8"/></svg>`;
+const STATUS_DEFAULT_PROGRESS = {进行中:30, 已完成:100, 搁置:10};
+
+let projectsData = loadProjects();
+function loadProjects(){
+  const saved = localStorage.getItem(LS_KEY_PROJECTS);
+  return saved ? JSON.parse(saved) : JSON.parse(JSON.stringify(SEED_PROJECTS));
+}
+function saveProjects(){ localStorage.setItem(LS_KEY_PROJECTS, JSON.stringify(projectsData)); }
+
+const projPhotos = {}; // { projectId: {sketch:url, real:url} } —— 本次会话内有效，刷新页面会清空
+let projFilterState = '全部';
+let activeProjectId = null;
+
+function renderProjFilter(){
+  const statuses = ['全部','进行中','已完成','搁置'];
+  document.getElementById('projFilter').innerHTML = statuses.map(s=>`
+    <div class="filter-chip ${s===projFilterState?'active':''}" onclick="setProjFilter('${s}')">${s}</div>
+  `).join('');
+}
+function setProjFilter(s){ projFilterState = s; renderProjFilter(); renderProjGrid(); }
+
+function renderProjGrid(){
+  const list = projectsData.filter(p => projFilterState==='全部' || p.status===projFilterState);
+  document.getElementById('projGrid').innerHTML = list.length ? list.map(p=>{
+    const uploaded = projPhotos[p.id] && projPhotos[p.id].real;
+    const coverStyle = uploaded ? `background-image:url(${uploaded})` : `background:${p.grad}`;
+    return `
+    <div class="proj-card" onclick="openProject(${p.id})">
+      <div class="proj-cover ${uploaded?'':'placeholder'}" style="${coverStyle}">
+        <div class="proj-status-pill">${p.status}</div>
+        ${uploaded ? '' : p.icon}
+      </div>
+      <div class="proj-body">
+        <div class="proj-name">${p.name}</div>
+        <div class="proj-meta">${p.wood} · ${p.cycle}</div>
+        <div class="proj-mini-track"><div class="proj-mini-fill" style="width:${p.progress}%"></div></div>
+      </div>
+    </div>`;
+  }).join('') : `<div class="nest-empty" style="grid-column:1/-1;">这里还没有作品，点右上角「+ 新作品」登记第一件吧</div>`;
+  document.getElementById('topSub').textContent = `${projectsData.length} 件作品 · ${projectsData.filter(p=>p.status==='进行中').length} 件进行中`;
+}
+function openProject(id){
+  activeProjectId = id;
+  const p = projectsData.find(x=>x.id===id);
+  document.getElementById('pModalName').textContent = p.name;
+  document.getElementById('pModalSub').textContent = `${p.wood} · ${p.status}`;
+  document.getElementById('pModalMaterial').textContent = p.wood;
+  document.getElementById('pModalCycle').textContent = p.cycle;
+  document.getElementById('pModalDims').textContent = p.dims;
+  document.getElementById('pModalStatus').textContent = `${p.status} · ${p.progress}%`;
+  document.getElementById('pModalNote').textContent = p.note || '（暂无笔记）';
+  document.getElementById('fileSketch').dataset.pid = id;
+  document.getElementById('fileReal').dataset.pid = id;
+  ['sketch','real'].forEach(kind=>{
+    const slotId = kind==='sketch' ? 'slotSketch' : 'slotReal';
+    const slot = document.getElementById(slotId);
+    const existing = projPhotos[id] && projPhotos[id][kind];
+    slot.innerHTML = existing
+      ? `<img src="${existing}"><span style="background:rgba(43,29,20,0.55); padding:2px 7px; border-radius:6px; color:#F1E6D2;">${kind==='sketch'?'设计草图':'作品实物'}</span>`
+      : `<span>${kind==='sketch'?'设计草图':'作品实物'}<br>点击上传</span>`;
+  });
+  document.getElementById('projModal').classList.add('open');
+}
+function uploadPhoto(input, slotId, kind){
+  const pid = parseInt(input.dataset.pid);
+  const file = input.files[0];
+  if(!file) return;
+  const url = URL.createObjectURL(file);
+  projPhotos[pid] = projPhotos[pid] || {};
+  projPhotos[pid][kind] = url;
+  document.getElementById(slotId).innerHTML = `<img src="${url}"><span style="background:rgba(43,29,20,0.55); padding:2px 7px; border-radius:6px; color:#F1E6D2;">${kind==='sketch'?'设计草图':'作品实物'}</span>`;
+  toast('已上传，AI 正在生成缩略图…');
+  setTimeout(renderProjGrid, 400);
+}
+function deleteProject(){
+  if(activeProjectId===null) return;
+  const p = projectsData.find(x=>x.id===activeProjectId);
+  if(!p) return;
+  if(!confirm(`确定要删除「${p.name}」吗？此操作无法撤销。`)) return;
+  projectsData = projectsData.filter(x=>x.id!==activeProjectId);
+  delete projPhotos[activeProjectId];
+  saveProjects();
+  closeModal('projModal');
+  renderProjGrid();
+  toast(`已删除「${p.name}」`);
+  activeProjectId = null;
+  renderDashboard();
+}
+document.getElementById('deleteProjBtn').addEventListener('click', deleteProject);
+
+function openNewProject(){
+  ['npName','npWood','npDims','npCycle','npNote'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('npStatus').value = '进行中';
+  document.getElementById('newProjModal').classList.add('open');
+}
+function submitNewProject(){
+  const name = document.getElementById('npName').value.trim();
+  if(!name){ toast('请先填写作品名称'); return; }
+  const wood = document.getElementById('npWood').value.trim() || '未填写';
+  const status = document.getElementById('npStatus').value;
+  const dims = document.getElementById('npDims').value.trim() || '待测量';
+  const cycle = document.getElementById('npCycle').value.trim() || '刚开始';
+  const note = document.getElementById('npNote').value.trim();
+  const newId = projectsData.length ? Math.max(...projectsData.map(p=>p.id))+1 : 1;
+  projectsData.push({
+    id:newId, name, wood, status, progress:STATUS_DEFAULT_PROGRESS[status], cycle, dims,
+    grad:NEW_PROJECT_GRADS[newId % NEW_PROJECT_GRADS.length], note, icon:DEFAULT_ICON
+  });
+  saveProjects();
+  closeModal('newProjModal');
+  renderProjGrid();
+  toast(`已创建作品「${name}」`);
+  renderDashboard();
+}
+
+/* ========================= AI 设计中心 ========================= */
+function fillPrompt(text){ document.getElementById('aiPrompt').value = text; }
+
+/* 在阿里云百炼控制台重新生成一个 Key 后填在这里。
+   注意：这是纯前端页面，Key 会出现在网页源码里——
+   只给自己/爷爷私下用问题不大，但不要把这个文件发给别人或传到公开的代码仓库。 */
+const QWEN_CONFIG = {
+  apiKey: 'sk-ws-H.EDRLLDM.2SGV.MEQCIGI3Js_bKNQomi8kRAoLLQtigJ-4xdpykNGrxwvwudWXAiA6oz8ivmpZURlPDdisBoa4Zj8b-0gA5RkvLQmJaZlCCg',
+  baseUrl: 'https://ws-05vmgaic48euvm26.cn-beijing.maas.aliyuncs.com/compatible-mode/v1',
+  model: 'qwen-plus'
+};
+
+const designTemplates = [
+  {keys:['筷子'], name:'胡桃木中式筷子', icon:'🥢',
+    dims:[['总长','230 mm（成人标准 220-250mm）'],['握持端直径','9 mm，方形倒角'],['夹取端直径','4.5 mm，圆润收窄'],['单支重量','约 13-15 g']],
+    material:'黑胡桃 · 直纹', weight:'约 28 g/双', cost:'约 18-25 元/双（含损耗）',
+    finish:'食品级核桃油，涂 3-4 遍，每遍间隔 12 小时干燥，不建议上蜡（避免蜡层脱落混入食物）'},
+  {keys:['砧板','菜板'], name:'白橡木厨房砧板', icon:'🔪',
+    dims:[['长×宽×厚','400×250×30 mm（家用中号）'],['边缘倒角','R3 mm 圆边，防止磕碰'],['握持槽','两端各留 15mm 手指槽']],
+    material:'白橡木 · 端面纹或竖纹拼板', weight:'约 1.6 kg', cost:'约 120-160 元（含拼板胶水）',
+    finish:'食品级矿物油打底 2 遍，蜂蜡油封面 1 遍，之后每月补涂矿物油一次'},
+  {keys:['笔筒'], name:'樱桃木桌面笔筒', icon:'✏️',
+    dims:[['外径','ø95 mm'],['内径','ø78 mm（壁厚 8.5mm）'],['高度','130 mm'],['底部厚度','12 mm']],
+    material:'樱桃木 · 独料车制', weight:'约 210 g', cost:'约 60-90 元',
+    finish:'木蜡油 2 遍，间隔 24 小时，无需打蜡，樱桃木本身氧化后颜色会加深变红润'},
+  {keys:['首饰盒','盒'], name:'胡桃木首饰盒', icon:'💍',
+    dims:[['外部尺寸','220×160×90 mm'],['板材厚度','12 mm（盒身），8 mm（盒盖）'],['内衬深度','65 mm，建议植绒衬布'],['转角结构','建议燕尾榫，比直角对接更耐用']],
+    material:'黑胡桃 · 盒盖建议选纹理对称的板材', weight:'约 650 g', cost:'约 180-260 元（含内衬材料）',
+    finish:'木蜡油 2-3 遍打底，表面可选蜂蜡抛光提升光泽，避免用清漆（略显廉价）'},
+  {keys:['托盘'], name:'橡木餐盘托盘', icon:'🍽️',
+    dims:[['长×宽×高','350×250×35 mm'],['把手孔径','ø30 mm，两侧对称'],['边缘厚度','18 mm']],
+    material:'白橡木或胡桃木均可', weight:'约 900 g', cost:'约 100-140 元',
+    finish:'食品级矿物油 2 遍，日常用水冲洗后需及时擦干，每季度补油一次'},
+];
+
+function localFallbackTemplate(text){
+  let tpl = designTemplates.find(t => t.keys.some(k=>text.includes(k)));
+  if(!tpl){
+    tpl = {name:'定制木作方案', icon:'🪚',
+      dims:[['建议先明确','用途 / 摆放位置 / 使用者身高体型'],['参考尺寸','可对照同类家具国标或实测常用工具尺寸'],['安全余量','结构受力处建议预留 10-15% 尺寸余量']],
+      material:'常见入门木材：黑胡桃 / 白橡木 / 樱桃木，视预算与纹理喜好选择',
+      weight:'需先确定尺寸后估算', cost:'需先确定尺寸与工艺复杂度后估算',
+      finish:'日用器皿建议食品级矿物油/核桃油；家具类建议木蜡油，不确定时先在边角料上试色'};
+  }
+  const woodMatch = text.match(/黑胡桃|胡桃木|白橡木|橡木|樱桃木|楠竹|紫光檀/);
+  const woodName = woodMatch ? woodMatch[0] : null;
+  tpl.material = woodName ? `${woodName} · ` + tpl.material.replace(/^(黑胡桃|白橡木|樱桃木)[^·]*·?\s*/,'') : tpl.material;
+  return tpl;
+}
+
+function renderAiResult(tpl, source){
+  document.getElementById('aiResultWrap').innerHTML = `
+    <div class="ai-result">
+      <div class="ai-result-head">
+        <div class="badge">${tpl.icon || '🪚'}</div>
+        <div>
+          <div class="t">${tpl.name}</div>
+          <div class="s">${source==='api' ? 'AI 实时生成 · 通义千问' : '本地模板 · 未连接 AI'}</div>
+        </div>
+      </div>
+      ${tpl.assumption ? `
+      <div class="humid-banner" style="margin-bottom:14px;">
+        🤔 AI 的理解：${tpl.assumption}<br>
+        <span style="font-size:11px; opacity:0.85;">如果理解错了，把描述写得更具体一点（比如说明是"搁筷尖用的小摆件"还是"插放筷子的筒"）再生成一次即可。</span>
+      </div>` : ''}
+      <div class="modal-sub-title" style="margin-top:0;">📐 尺寸建议</div>
+      <table class="ai-dim-table">
+        ${tpl.dims.map(d=>`<tr><td>${d[0]}</td><td>${d[1]}</td></tr>`).join('')}
+      </table>
+      <div class="ai-info-grid">
+        <div class="ai-info-box"><div class="k">材料建议</div><div class="v">${tpl.material}</div></div>
+        <div class="ai-info-box"><div class="k">重量估算</div><div class="v">${tpl.weight}</div></div>
+        <div class="ai-info-box"><div class="k">材料成本估算</div><div class="v">${tpl.cost}</div></div>
+        <div class="ai-info-box"><div class="k">推荐结构</div><div class="v" style="cursor:pointer; color:var(--amber-deep);" onclick="toast('可在描述里直接追问，比如&quot;转角用什么榫接更牢固&quot;')">追问榫卯建议 →</div></div>
+      </div>
+      <div class="modal-sub-title">🪶 上蜡 / 上油建议</div>
+      <div class="ai-finish-note">${tpl.finish}</div>
+      <div class="ai-actions">
+        <button class="create" onclick="createFromAI('${tpl.name}')">创建为新作品</button>
+        <button class="save" onclick="toast('设计方案已保存到收藏')">收藏方案</button>
+      </div>
+    </div>
+  `;
+}
+
+const AI_SYSTEM_PROMPT = `你是一位懂中国传统木工规格的业余木作顾问。用户会描述想做的木作品，你需要只返回一个 JSON 对象（不要任何多余文字、不要代码块标记），字段如下：
+{
+  "assumption": "一句话说明你把这个描述理解成了什么具体物件、什么使用场景（比如是餐桌上单个搁筷尖用的小摆件，还是收纳多双筷子的筒/架）。如果描述本身可能有歧义，在这句话里说明你选择了哪种更常见的理解。",
+  "name": "作品名称（中文，简短）",
+  "icon": "一个合适的 emoji",
+  "dims": [["尺寸项名称","具体数值，尽量用中国常用规格或国标参考，带单位"], ...共3-5项],
+  "material": "材料建议（树种+纹理/拼板建议）",
+  "weight": "重量估算，带单位",
+  "cost": "仅材料成本估算区间，人民币",
+  "finish": "上蜡/上油具体建议，说明用什么油、涂几遍、间隔多久，如果是食品接触类要特别说明"
+}
+
+尺度校准规则（非常重要，避免尺寸失真）：
+- 用户描述中出现"小""迷你""桌面"等词时，整体物件应控制在掌心大小（多数尺寸不超过 60-80mm），不要理解成收纳筒/大型容器，除非用户明确说了"筒""桶""收纳"等词。
+- 参考真实业余木作常见尺寸：筷子架/筷托（餐桌上搁筷尖用）整体长 50-60mm、高 12-18mm、重 8-15g；筷子本身 220-250mm；餐勺 150-180mm；小摆件/镇纸类 40-80mm 见方。不要凭空放大这些常见品类的尺寸。
+- 如果用户的描述可能对应两种不同大小/用途的物件（比如"筷子架"既可能是单个搁筷小摆件，也可能是收纳筒），默认选择更小、更常见的那一种，并在 assumption 字段里说明你的选择，方便用户发现理解错了可以重新描述。
+
+成本估算规则：
+- cost 字段只计算业余爱好者自己购买木料 + 少量五金/胶水/砂纸/油漆等辅料的物料成本，参照国内木料市场零售价，不要按"卖给别人的定价"或"专业工坊报价"来估。
+- 一个巴掌大小的小摆件，材料成本通常在个位数到几十元人民币，不应该出现三位数报价，除非用了很贵的木材（如紫光檀）或体积明显偏大。
+
+只输出 JSON。`;
+
+async function callQwen(userText){
+  let resp;
+  try{
+    resp = await fetch(`${QWEN_CONFIG.baseUrl}/chat/completions`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${QWEN_CONFIG.apiKey}`
+      },
+      body: JSON.stringify({
+        model: QWEN_CONFIG.model,
+        messages: [
+          { role: 'system', content: AI_SYSTEM_PROMPT },
+          { role: 'user', content: userText }
+        ],
+        temperature: 0.4
+      })
+    });
+  }catch(networkErr){
+    // fetch 本身抛错（不是 HTTP 状态码问题），常见原因是网络中断或浏览器跨域（CORS）拦截
+    throw new Error('网络请求被拦截，很可能是浏览器跨域（CORS）限制——请查看下方说明');
+  }
+  if(!resp.ok){
+    let detail = '';
+    try{ const errBody = await resp.json(); detail = errBody.error?.message || JSON.stringify(errBody); }catch(e){}
+    throw new Error(`HTTP ${resp.status}${detail ? ' — ' + detail : ''}`);
+  }
+  const data = await resp.json();
+  const raw = data.choices[0].message.content.trim().replace(/^```json\s*|```$/g, '');
+  return JSON.parse(raw);
+}
+
+async function generateDesign(){
+  const text = document.getElementById('aiPrompt').value.trim();
+  if(!text){ toast('请先描述一下你想做的作品'); return; }
+
+  const keyReady = QWEN_CONFIG.apiKey && QWEN_CONFIG.apiKey !== 'PASTE_YOUR_NEW_API_KEY_HERE';
+  if(!keyReady){
+    renderAiResult(localFallbackTemplate(text), 'local');
+    toast('还没配置 API Key，先展示本地模板效果');
+    return;
+  }
+
+  document.getElementById('aiResultWrap').innerHTML = `<div class="nest-empty">AI 正在生成设计方案…</div>`;
+  try{
+    const tpl = await callQwen(text);
+    renderAiResult(tpl, 'api');
+  }catch(err){
+    console.error(err);
+    renderAiResult(localFallbackTemplate(text), 'local');
+    const msg = (err && err.message) ? err.message : String(err);
+    document.getElementById('aiResultWrap').insertAdjacentHTML('afterbegin',
+      `<div class="dash-alert" style="margin-bottom:12px;"><div class="icon">⚠️</div><div class="txt"><b>AI 调用失败：</b>${msg}</div></div>`);
+    toast('AI 调用失败，已展示本地模板作为备选');
+  }
+}
+function createFromAI(name){
+  toast(`已在「作品收录」中创建：${name}`);
+  switchTab('project');
+}
+
+
+/* ========================= 木料台账 ========================= */
+const stockData = [
+  {id:1, name:'黑胡桃 Black Walnut', source:'美国进口 · 木行代购', moisture:9, remain:18, dims:'200×20×5 cm', date:'2026-05-12', price:'680 元/根', risk:'中', color:'#6E5E4E'},
+  {id:2, name:'白橡木 White Oak', source:'国产板材市场', moisture:11, remain:45, dims:'180×25×4 cm', date:'2026-04-02', price:'320 元/根', risk:'低', color:'#B8A99A'},
+  {id:3, name:'樱桃木 Cherry', source:'本地木行订购', moisture:8, remain:62, dims:'150×15×3 cm', date:'2026-06-01', price:'280 元/根', risk:'低', color:'#B08A79'},
+  {id:4, name:'紫光檀 边角料', source:'旧料利用', moisture:6, remain:8, dims:'80×10×2 cm', date:'2026-03-20', price:'—', risk:'高', color:'#4C4034'},
+];
+const LS_KEY_STOCK = 'wc_stock_remain';
+function loadStockState(){
+  const saved = JSON.parse(localStorage.getItem(LS_KEY_STOCK) || '{}');
+  stockData.forEach(s => { if(saved[s.id] !== undefined) s.remain = saved[s.id]; });
+}
+function saveStockState(){
+  const obj = {}; stockData.forEach(s => obj[s.id] = s.remain);
+  localStorage.setItem(LS_KEY_STOCK, JSON.stringify(obj));
+}
+function renderStock(){
+  document.getElementById('stockList').innerHTML = stockData.map(s => `
+    <div class="stock-card" style="--bar-color:${s.color}">
+      <div class="stock-top">
+        <div><div class="stock-name">${s.name}</div><div class="stock-source">${s.source}</div></div>
+        <div class="risk-pill risk-${s.risk}">开裂风险 ${s.risk}</div>
+      </div>
+      <div class="stock-meta">
+        <div>规格&nbsp;<b>${s.dims}</b></div><div>含水率&nbsp;<b>${s.moisture}%</b></div>
+        <div>购入&nbsp;<b>${s.date}</b></div><div>单价&nbsp;<b>${s.price}</b></div>
+      </div>
+      <div class="remain-row">
+        <div class="remain-label">剩余量</div>
+        <div class="remain-track"><div class="remain-fill" style="width:${s.remain}%"></div></div>
+        <div class="remain-pct mono">${s.remain}%</div>
+      </div>
+      <div class="card-actions">
+        <button class="btn-mini" onclick="toggleDeduct(${s.id})">📷 拍照存档</button>
+        <button class="btn-mini primary" onclick="toggleDeduct(${s.id})">✂️ 记录用料</button>
+      </div>
+      <div class="deduct-panel" id="deduct-${s.id}">
+        <div class="deduct-row">
+          <input type="number" id="deductInput-${s.id}" placeholder="本次用去百分比，如 5">
+          <button onclick="doDeduct(${s.id})">确认扣减</button>
+        </div>
+        <div class="deduct-hint">扣减后将自动更新剩余量，并同步进度到项目「用料记录」</div>
+      </div>
+    </div>
+  `).join('');
+  document.getElementById('stockCount').textContent = stockData.length + ' 种';
+}
+function toggleDeduct(id){ document.getElementById('deduct-'+id).classList.toggle('open'); }
+function doDeduct(id){
+  const input = document.getElementById('deductInput-'+id);
+  const val = parseFloat(input.value);
+  if(isNaN(val) || val<=0){ toast('请输入有效的用量百分比'); return; }
+  const s = stockData.find(x=>x.id===id);
+  s.remain = Math.max(0, +(s.remain - val).toFixed(1));
+  saveStockState(); renderStock();
+  toast(`已扣减 ${val}%，${s.name} 剩余 ${s.remain}%`);
+  renderDashboard();
+}
+
+/* ========================= 下料排版 ========================= */
+let partIdSeq = 3;
+const initialParts = [
+  {id:1, l:45, w:4, qty:4, label:'桌腿'},
+  {id:2, l:38, w:8, qty:2, label:'横撑'},
+];
+function renderPartsList(){
+  document.getElementById('partsList').innerHTML = `
+    <div class="part-row" style="color:var(--ink-soft); font-size:10.5px;"><div>长(cm)</div><div>宽(cm)</div><div>数量</div><div>名称</div><div></div></div>
+  ` + initialParts.map(p => `
+    <div class="part-row">
+      <input type="number" value="${p.l}" onchange="updatePart(${p.id},'l',this.value)">
+      <input type="number" value="${p.w}" onchange="updatePart(${p.id},'w',this.value)">
+      <input type="number" value="${p.qty}" onchange="updatePart(${p.id},'qty',this.value)">
+      <input type="text" value="${p.label}" onchange="updatePart(${p.id},'label',this.value)">
+      <button class="del" onclick="delPart(${p.id})">✕</button>
+    </div>
+  `).join('');
+}
+function updatePart(id, key, val){ const p = initialParts.find(x=>x.id===id); p[key] = (key==='label') ? val : parseFloat(val)||0; }
+function delPart(id){ const idx = initialParts.findIndex(x=>x.id===id); if(idx>-1) initialParts.splice(idx,1); renderPartsList(); }
+function addPartRow(){ initialParts.push({id:++partIdSeq, l:30, w:5, qty:1, label:'零件'+partIdSeq}); renderPartsList(); }
+
+const PART_COLORS = ['#9C7E62','#93987F','#8C9291','#B08A79','#8A7D6E','#B8A99A'];
+function runNest(){
+  const boardL = parseFloat(document.getElementById('boardL').value) || 200;
+  const boardW = parseFloat(document.getElementById('boardW').value) || 30;
+  const kerf = 0.3;
+  let rects = [];
+  initialParts.forEach((p, idx) => {
+    const color = PART_COLORS[idx % PART_COLORS.length];
+    for(let i=0;i<p.qty;i++) rects.push({l:p.l+kerf, w:p.w+kerf, label:p.label, color});
+  });
+  if(rects.length===0){
+    document.getElementById('nestResultWrap').innerHTML = `<div class="nest-result"><div class="nest-empty">请先添加至少一个零件规格</div></div>`;
+    return;
+  }
+  rects.sort((a,b)=> Math.max(b.l,b.w) - Math.max(a.l,a.w));
+  let x=0, y=0, shelfH=0, placed=[], overflow=[];
+  rects.forEach(r=>{
+    let {l:rl, w:rw} = r;
+    if(rl > boardL && rw <= boardL){ [rl, rw] = [rw, rl]; }
+    if(x + rl > boardL){ x=0; y += shelfH; shelfH=0; }
+    if(y + rw > boardW){ overflow.push(r); return; }
+    placed.push({x, y, l:rl, w:rw, label:r.label, color:r.color});
+    x += rl; shelfH = Math.max(shelfH, rw);
+  });
+  const boardArea = boardL*boardW;
+  const usedArea = placed.reduce((sum,p)=> sum + p.l*p.w, 0);
+  const util = Math.min(100, (usedArea/boardArea*100)).toFixed(1);
+  const waste = (100-util).toFixed(1);
+  const vbW = 340, vbH = vbW * (boardW/boardL);
+  const scale = vbW/boardL;
+  const svgRects = placed.map(p => `
+    <rect x="${p.x*scale}" y="${p.y*scale}" width="${p.l*scale}" height="${p.w*scale}" fill="${p.color}" fill-opacity="0.82" stroke="#2B1D14" stroke-width="0.6" rx="2"/>
+    <text x="${p.x*scale + p.l*scale/2}" y="${p.y*scale + p.w*scale/2 + 3}" font-size="9" text-anchor="middle" fill="#F1E6D2" font-family="JetBrains Mono, monospace">${p.label}</text>
+  `).join('');
+  const legendMap = {}; placed.forEach(p=>{ legendMap[p.label]=p.color; });
+  const legend = Object.entries(legendMap).map(([label,color])=>`<div class="legend-chip"><div class="sw" style="background:${color}"></div>${label}</div>`).join('');
+  document.getElementById('nestResultWrap').innerHTML = `
+    <div class="nest-result">
+      <div class="nest-stats">
+        <div class="stat-box util"><div class="v">${util}%</div><div class="l">板材利用率</div></div>
+        <div class="stat-box waste"><div class="v">${waste}%</div><div class="l">损耗占比</div></div>
+        <div class="stat-box"><div class="v">${placed.length}/${rects.length}</div><div class="l">已排入/总数</div></div>
+      </div>
+      <div id="nestSvgWrap"><svg viewBox="0 0 ${vbW} ${vbH}" style="width:100%; display:block;"><rect x="0" y="0" width="${vbW}" height="${vbH}" fill="none" stroke="var(--walnut)" stroke-width="2"/>${svgRects}</svg></div>
+      <div class="nest-legend">${legend}</div>
+      ${overflow.length ? `<div class="deduct-hint" style="color:var(--brick); margin-top:10px;">⚠ 有 ${overflow.length} 个零件当前板材放不下，建议加购一块板材或调整尺寸</div>` : ''}
+    </div>
+  `;
+}
+
+/* ========================= 湿度提醒 ========================= */
+const humidContent = {
+  south:{banner:`当前判断为<b>南方梅雨季</b>：空气湿度普遍在 80% 以上，木料易吸湿膨胀。加工前建议将木料在室内静置回潮 3-5 天，避免开裂或加工后变形。`,
+    risk:{高:'高湿环境下边角料含水率骤变风险最大，建议密封存放，暂缓精加工', 中:'注意避免暴露在潮湿角落，加工后及时上油封闭端面', 低:'当前含水率稳定，正常存放即可'}},
+  north:{banner:`当前判断为<b>北方干燥季</b>：室内暖气环境下湿度常低于 30%，木料易失水开裂，尤其是端面与髓心部位。建议用蜡封端或裹保鲜膜存放。`,
+    risk:{高:'干燥环境下最容易开裂，务必封端保存，避免阳光直射与暖气出风口', 中:'建议存放于阴凉角落，加工前检查端面是否有裂纹', 低:'含水率偏低属正常，适合直接加工'}}
+};
+function setRegion(region){
+  document.querySelectorAll('.region-btn').forEach(b=>b.classList.toggle('active', b.dataset.region===region));
+  document.getElementById('humidBanner').innerHTML = humidContent[region].banner;
+  const riskColorMap = {高:'var(--brick)', 中:'var(--amber-deep)', 低:'var(--moss)'};
+  document.getElementById('riskList').innerHTML = stockData.map(s=>`
+    <div class="risk-card" style="--risk-color:${riskColorMap[s.risk]}">
+      <div><div class="name">${s.name}</div><div class="desc">${humidContent[region].risk[s.risk]}</div></div>
+      <div class="risk-badge">${s.risk}</div>
+    </div>
+  `).join('');
+}
+
+/* ========================= 初始化 ========================= */
+loadStockState();
+renderStock();
+renderPartsList();
+setRegion('south');
+renderProjFilter();
+renderProjGrid();
+renderDashboard();
+</script>
+</body>
+</html>
